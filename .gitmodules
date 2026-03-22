@@ -1,0 +1,3 @@
+[submodule "lc-framework-sys/LC-framework"]
+	path = lc-framework-sys/LC-framework
+	url = https://github.com/burtscher/LC-framework.git
