@@ -16,7 +16,7 @@ lc-framework-sys = { version = "0.1", path = "lc-framework-sys", default-feature
 # crates.io third-party dependencies
 anyhow = { version = "1.0.93", default-features = false }
 bindgen = { version = "0.71", default-features = false }
-libc = { version = "0.2", default-features = false }
+libc = { version = "0.2.39", default-features = false }
 thiserror = { version = "2.0.17", default-features = false }
 
 [package]
