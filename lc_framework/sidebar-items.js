@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Component","Decorrelation","ElemSize","ErrorKind","LorenzoDtype","Preprocessor","QuantizeDType"],"fn":["compress","decompress"]};
+window.SIDEBAR_ITEMS = {"enum":["Component","Decorrelation","ElemSize","ErrorKind","FloatSize","LorenzoDtype","Preprocessor","QuantizeDType","TupleSize"],"fn":["compress","decompress"]};
