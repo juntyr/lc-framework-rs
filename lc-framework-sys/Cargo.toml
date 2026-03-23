@@ -6,11 +6,16 @@ authors = { workspace = true }
 repository = { workspace = true }
 rust-version = { workspace = true }
 
+links = "lc"
+
 description = "Low-level Rust bindings to the LC compression framework"
 readme = "README.md"
 categories = ["api-bindings", "compression", "encoding"]
 keywords = ["lc", "framework", "bindgen", "compression", "encoding"]
 
+[dependencies]
+lc-framework-src = { workspace = true }
+
 [build-dependencies]
-anyhow = { workspace = true }
 bindgen = { workspace = true, features = ["runtime"] }
+cc = { workspace = true }
