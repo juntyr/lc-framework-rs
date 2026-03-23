@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["available_components","available_preprocessors","compress","decompress"]};
+window.SIDEBAR_ITEMS = {"enum":["Decorrelation","ErrorKind","LorenzoDtype","Preprocessor","QuantizeDType"],"fn":["available_components","compress","decompress"]};

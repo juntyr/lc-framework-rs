@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["lc_framework",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"enum\" href=\"lc_framework/enum.Decorrelation.html\" title=\"enum lc_framework::Decorrelation\">Decorrelation</a>",0,1,["lc_framework::Decorrelation"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"enum\" href=\"lc_framework/enum.ErrorKind.html\" title=\"enum lc_framework::ErrorKind\">ErrorKind</a>",0,1,["lc_framework::ErrorKind"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"enum\" href=\"lc_framework/enum.LorenzoDtype.html\" title=\"enum lc_framework::LorenzoDtype\">LorenzoDtype</a>",0,1,["lc_framework::LorenzoDtype"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"enum\" href=\"lc_framework/enum.Preprocessor.html\" title=\"enum lc_framework::Preprocessor\">Preprocessor</a>",0,1,["lc_framework::Preprocessor"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"enum\" href=\"lc_framework/enum.QuantizeDType.html\" title=\"enum lc_framework::QuantizeDType\">QuantizeDType</a>",0,1,["lc_framework::QuantizeDType"]]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[1549]}
