@@ -13,5 +13,7 @@ readme = "README.md"
 categories = ["api-bindings", "compression", "encoding"]
 keywords = ["lc", "framework", "compression", "encoding"]
 
+exclude = ["/LC-framework/scripts", "/LC-framework/LC.svg"]
+
 [build-dependencies]
 fs_extra = { workspace = true }
