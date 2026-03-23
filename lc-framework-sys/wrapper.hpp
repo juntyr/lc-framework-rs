@@ -1,31 +1,15 @@
 #include <cassert>
 #include <iostream>
-#include <sstream>
 
 #include "lc.h"
 
-static std::string available_components_impl() {
-    std::stringstream ss;
-
-    const std::map<std::string, byte> comp_name2num = getCompMap();
-    for (auto pair: comp_name2num) {
-        ss << pair.first << " ";
-    }
-
-    return ss.str();
-}
-
-extern "C" const char* lc_available_components() {
-    static std::string components = available_components_impl();
-    return components.c_str();
-}
-
 extern "C" int lc_compress(
     const size_t npepros,
-    const LC_CPUpreprocessor* const prepros_ids,
+    const LC_CPUpreprocessor* const prepro_ids,
     const size_t* const prepros_nparams,
     const double* const prepros_params,
-    const char* const comp_cstr,
+    const size_t ncomps,
+    const LC_CPUcomponents* const comp_ids,
     const byte* const input,
     const long long insize,
     byte** encoded,
@@ -35,20 +19,6 @@ extern "C" int lc_compress(
     byte* hencoded = nullptr;
 
     try {
-        // generate preprocessor maps
-        std::map<std::string, byte> prepro_name2num = getPreproMap();
-        std::string prepro_num2name [256];
-        for (auto pair: prepro_name2num) {
-        prepro_num2name[pair.second] = pair.first;
-        }
-
-        // generate component maps
-        std::map<std::string, byte> comp_name2num = getCompMap();
-        std::string comp_num2name [256];
-        for (auto pair: comp_name2num) {
-        comp_num2name[pair.second] = pair.first;
-        }
-
         std::vector<std::pair<byte, std::vector<double>>> prepros;
         size_t prepros_params_cnt = 0;
         for (auto i = 0; i < npepros; ++i) {
@@ -57,25 +27,18 @@ extern "C" int lc_compress(
                 prepros_params + prepros_params_cnt + prepros_nparams[i],
             };
             prepros_params_cnt += prepros_nparams[i];
-            prepros.push_back(std::make_pair((byte)prepros_ids[i], params));
+            prepros.push_back(std::make_pair((byte)prepro_ids[i], params));
         }
 
-        int stages;
-        unsigned long long algorithms;
         std::vector<std::vector<byte>> comp_list;
-
-        auto comp_str = std::string(comp_cstr);
-        comp_list = getStages(comp_name2num, comp_str.data(), stages, algorithms);
-        if (algorithms != 1) {
-            fprintf(stderr, "ERROR: pipeline must describe one algorithm\n\n");
-            throw std::runtime_error("LC error");
+        for (auto i = 0; i < ncomps; ++i) {
+            std::vector<byte> comps = { (byte)comp_ids[i] };
+            comp_list.push_back(comps);
         }
-
-        printStages(prepros, prepro_name2num, comp_list, comp_name2num, stages, algorithms);
+        auto stages = comp_list.size();
 
         if (insize <= 0) {fprintf(stderr, "ERROR: input too small\n\n"); throw std::runtime_error("LC error");}
         if (insize >= 9223372036854775807) {fprintf(stderr, "ERROR: input too large\n\n"); throw std::runtime_error("LC error");}
-        printf("input size: %lld bytes\n\n", insize);
 
         // CPU preprocessor encoding
         hpreencdata = new byte [insize];
@@ -92,7 +55,7 @@ extern "C" int lc_compress(
         // create chain for current combination and output
         unsigned long long combin = 0;
         unsigned long long chain = 0;
-        for (int s = 0; s < stages; s++) {
+        for (auto s = 0; s < stages; s++) {
             unsigned long long compnum = comp_list[s][(combin >> (s * 8)) & 0xff];
             chain |= compnum << (s * 8);
         }
@@ -123,10 +86,11 @@ extern "C" void lc_free_bytes(byte* data) {
 
 extern "C" int lc_decompress(
     const size_t npepros,
-    const LC_CPUpreprocessor* const prepros_ids,
+    const LC_CPUpreprocessor* const prepro_ids,
     const size_t* const prepros_nparams,
     const double* const prepros_params,
-    const char* const comp_cstr,
+    const size_t ncomps,
+    const LC_CPUcomponents* const comp_ids,
     const byte* const encoded,
     const long long encsize,
     byte** decoded,
@@ -136,20 +100,6 @@ extern "C" int lc_decompress(
     byte* hpredecdata = nullptr;
 
     try {
-        // generate preprocessor maps
-        std::map<std::string, byte> prepro_name2num = getPreproMap();
-        std::string prepro_num2name [256];
-        for (auto pair: prepro_name2num) {
-        prepro_num2name[pair.second] = pair.first;
-        }
-
-        // generate component maps
-        std::map<std::string, byte> comp_name2num = getCompMap();
-        std::string comp_num2name [256];
-        for (auto pair: comp_name2num) {
-        comp_num2name[pair.second] = pair.first;
-        }
-
         std::vector<std::pair<byte, std::vector<double>>> prepros;
         size_t prepros_params_cnt = 0;
         for (auto i = 0; i < npepros; ++i) {
@@ -158,23 +108,15 @@ extern "C" int lc_decompress(
                 prepros_params + prepros_params_cnt + prepros_nparams[i],
             };
             prepros_params_cnt += prepros_nparams[i];
-            prepros.push_back(std::make_pair((byte)prepros_ids[i], params));
+            prepros.push_back(std::make_pair((byte)prepro_ids[i], params));
         }
 
-        int stages;
-        unsigned long long algorithms;
         std::vector<std::vector<byte>> comp_list;
-
-        auto comp_str = std::string(comp_cstr);
-        comp_list = getStages(comp_name2num, comp_str.data(), stages, algorithms);
-        if (algorithms != 1) {
-            fprintf(stderr, "ERROR: pipeline must describe one algorithm\n\n");
-            throw std::runtime_error("LC error");
+        for (auto i = 0; i < ncomps; ++i) {
+            std::vector<byte> comps = { (byte)comp_ids[i] };
+            comp_list.push_back(comps);
         }
-
-        printStages(prepros, prepro_name2num, comp_list, comp_name2num, stages, algorithms);
-
-        printf("encoded size: %lld bytes\n\n", encsize);
+        auto stages = comp_list.size();
 
         long long pre_size = 0;
         assert(encsize >= sizeof(pre_size));
@@ -187,7 +129,7 @@ extern "C" int lc_decompress(
         // create chain for current combination and output
         unsigned long long combin = 0;
         unsigned long long chain = 0;
-        for (int s = 0; s < stages; s++) {
+        for (auto s = 0; s < stages; s++) {
             unsigned long long compnum = comp_list[s][(combin >> (s * 8)) & 0xff];
             chain |= compnum << (s * 8);
         }

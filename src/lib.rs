@@ -1,5 +1,3 @@
-use std::{ffi::CStr, sync::OnceLock};
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Preprocessor {
     Noop,
@@ -152,27 +150,63 @@ pub enum QuantizeDType {
     F64,
 }
 
-pub fn available_components() -> &'static [&'static str] {
-    static COMPONENTS: OnceLock<Vec<&'static str>> = OnceLock::new();
+pub enum Component {
+    // mutators
+    Noop,
+    TwosComplementToMagnitudeSign { size: ElemSize },
+    // shufflers
+    BitShuffle { size: ElemSize },
+    // reducers
+    RunLengthEncoding { size: ElemSize },
+    // CLOG_1, CLOG_2, CLOG_4, CLOG_8, DBEFS_4, DBEFS_8, DBESF_4, DBESF_8, DIFFMS_1, DIFFMS_2, DIFFMS_4, DIFFMS_8, DIFFNB_1, DIFFNB_2, DIFFNB_4, DIFFNB_8, DIFF_1, DIFF_2, DIFF_4, DIFF_8, HCLOG_1, HCLOG_2, HCLOG_4, HCLOG_8, RARE_1, RARE_2, RARE_4, RARE_8, RAZE_1, RAZE_2, RAZE_4, RAZE_8, RRE_1, RRE_2, RRE_4, RRE_8, RZE_1, RZE_2, RZE_4, RZE_8, TCNB_1, TCNB_2, TCNB_4, TCNB_8, TUPL12_1, TUPL2_1, TUPL2_2, TUPL2_4, TUPL3_1, TUPL3_2, TUPL3_8, TUPL4_1, TUPL4_2, TUPL6_1, TUPL6_2, TUPL6_4, TUPL6_8, TUPL8_1
+}
 
-    COMPONENTS
-        .get_or_init(|| {
-            let components = unsafe { CStr::from_ptr(lc_framework_sys::lc_available_components()) }
-                .to_str()
-                .unwrap();
+pub enum ElemSize {
+    S1,
+    S2,
+    S4,
+    S8,
+}
 
-            components
-                .split(' ')
-                .map(str::trim)
-                .filter(|x| !x.is_empty())
-                .collect()
-        })
-        .as_slice()
+impl Component {
+    fn as_id(&self) -> lc_framework_sys::LC_CPUcomponents {
+        match self {
+            Self::Noop => lc_framework_sys::LC_CPUcomponents_NUL_CPUcomponents,
+            Self::TwosComplementToMagnitudeSign { size: ElemSize::S1 } => {
+                lc_framework_sys::LC_CPUcomponents_TCMS_1
+            }
+            Self::TwosComplementToMagnitudeSign { size: ElemSize::S2 } => {
+                lc_framework_sys::LC_CPUcomponents_TCMS_2
+            }
+            Self::TwosComplementToMagnitudeSign { size: ElemSize::S4 } => {
+                lc_framework_sys::LC_CPUcomponents_TCMS_4
+            }
+            Self::TwosComplementToMagnitudeSign { size: ElemSize::S8 } => {
+                lc_framework_sys::LC_CPUcomponents_TCMS_8
+            }
+            Self::BitShuffle { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_BIT_1,
+            Self::BitShuffle { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_BIT_2,
+            Self::BitShuffle { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_BIT_4,
+            Self::BitShuffle { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_BIT_8,
+            Self::RunLengthEncoding { size: ElemSize::S1 } => {
+                lc_framework_sys::LC_CPUcomponents_RLE_1
+            }
+            Self::RunLengthEncoding { size: ElemSize::S2 } => {
+                lc_framework_sys::LC_CPUcomponents_RLE_2
+            }
+            Self::RunLengthEncoding { size: ElemSize::S4 } => {
+                lc_framework_sys::LC_CPUcomponents_RLE_4
+            }
+            Self::RunLengthEncoding { size: ElemSize::S8 } => {
+                lc_framework_sys::LC_CPUcomponents_RLE_8
+            }
+        }
+    }
 }
 
 pub fn compress(
     preprocessors: &[Preprocessor],
-    components: &CStr,
+    components: &[Component],
     input: &[u8],
 ) -> Result<Vec<u8>, ()> {
     let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
@@ -185,16 +219,19 @@ pub fn compress(
         preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
     }
 
+    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
+
     let mut encoded_ptr = std::ptr::null_mut();
     let mut encoded_size = 0;
 
     let status = unsafe {
         lc_framework_sys::lc_compress(
-            preprocessors.len(),
+            preprocessor_ids.len(),
             preprocessor_ids.as_ptr(),
             preprocessor_nparams.as_ptr(),
             preprocessor_params.as_ptr(),
-            components.as_ptr(),
+            component_ids.len(),
+            component_ids.as_ptr(),
             input.as_ptr(),
             input.len() as _,
             &raw mut encoded_ptr,
@@ -226,7 +263,7 @@ pub fn compress(
 
 pub fn decompress(
     preprocessors: &[Preprocessor],
-    components: &CStr,
+    components: &[Component],
     encoded: &[u8],
 ) -> Result<Vec<u8>, ()> {
     let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
@@ -239,16 +276,19 @@ pub fn decompress(
         preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
     }
 
+    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
+
     let mut decoded_ptr = std::ptr::null_mut();
     let mut decoded_size = 0;
 
     let status = unsafe {
         lc_framework_sys::lc_decompress(
-            preprocessors.len(),
+            preprocessor_ids.len(),
             preprocessor_ids.as_ptr(),
             preprocessor_nparams.as_ptr(),
             preprocessor_params.as_ptr(),
-            components.as_ptr(),
+            component_ids.len(),
+            component_ids.as_ptr(),
             encoded.as_ptr(),
             encoded.len() as _,
             &raw mut decoded_ptr,
@@ -285,10 +325,11 @@ mod tests {
 
     #[test]
     fn foo() {
-        eprintln!("{:?}", available_components());
-
         let preprocessors = &[];
-        let components = c"BIT_4 RLE_4";
+        let components = &[
+            Component::BitShuffle { size: ElemSize::S4 },
+            Component::RunLengthEncoding { size: ElemSize::S4 },
+        ];
 
         let data = b"abcd";
         eprintln!("data={data:?}");

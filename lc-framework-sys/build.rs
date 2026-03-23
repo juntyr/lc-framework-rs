@@ -22,7 +22,6 @@ fn main() {
         .clang_arg("-DUSE_CPU")
         .header("wrapper.hpp")
         .parse_callbacks(Box::new(cargo_callbacks))
-        .allowlist_function("lc_available_components")
         .allowlist_function("lc_compress")
         .allowlist_function("lc_decompress")
         .allowlist_function("lc_free_bytes")
