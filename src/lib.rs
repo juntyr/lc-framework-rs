@@ -1,3 +1,125 @@
+pub fn compress(
+    preprocessors: &[Preprocessor],
+    components: &[Component],
+    input: &[u8],
+) -> Result<Vec<u8>, ()> {
+    let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
+    let mut preprocessor_params = Vec::new();
+    let mut preprocessor_nparams = Vec::with_capacity(preprocessors.len());
+    for preprocessor in preprocessors {
+        preprocessor_ids.push(preprocessor.as_id());
+        let preprocessor_nparams_sum = preprocessor_nparams.len();
+        preprocessor.push_params(&mut preprocessor_params);
+        preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
+    }
+
+    if components.is_empty() || components.len() > (lc_framework_sys::max_stages as _) {
+        return Err(());
+    }
+
+    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
+
+    let mut encoded_ptr = std::ptr::null_mut();
+    let mut encoded_size = 0;
+
+    let status = unsafe {
+        lc_framework_sys::lc_compress(
+            preprocessor_ids.len(),
+            preprocessor_ids.as_ptr(),
+            preprocessor_nparams.as_ptr(),
+            preprocessor_params.as_ptr(),
+            component_ids.len(),
+            component_ids.as_ptr(),
+            input.as_ptr(),
+            input.len() as _,
+            &raw mut encoded_ptr,
+            &raw mut encoded_size,
+        )
+    };
+
+    if status != 0 {
+        return Err(());
+    }
+
+    let mut encoded = Vec::with_capacity(encoded_size as _);
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            encoded_ptr.cast_const(),
+            encoded.as_mut_ptr(),
+            encoded_size as _,
+        );
+    }
+    unsafe {
+        encoded.set_len(encoded_size as _);
+    }
+    unsafe {
+        lc_framework_sys::lc_free_bytes(encoded_ptr);
+    }
+
+    Ok(encoded)
+}
+
+pub fn decompress(
+    preprocessors: &[Preprocessor],
+    components: &[Component],
+    encoded: &[u8],
+) -> Result<Vec<u8>, ()> {
+    let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
+    let mut preprocessor_params = Vec::new();
+    let mut preprocessor_nparams = Vec::with_capacity(preprocessors.len());
+    for preprocessor in preprocessors {
+        preprocessor_ids.push(preprocessor.as_id());
+        let preprocessor_nparams_sum = preprocessor_nparams.len();
+        preprocessor.push_params(&mut preprocessor_params);
+        preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
+    }
+
+    if components.is_empty() || components.len() > (lc_framework_sys::max_stages as _) {
+        return Err(());
+    }
+
+    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
+
+    let mut decoded_ptr = std::ptr::null_mut();
+    let mut decoded_size = 0;
+
+    let status = unsafe {
+        lc_framework_sys::lc_decompress(
+            preprocessor_ids.len(),
+            preprocessor_ids.as_ptr(),
+            preprocessor_nparams.as_ptr(),
+            preprocessor_params.as_ptr(),
+            component_ids.len(),
+            component_ids.as_ptr(),
+            encoded.as_ptr(),
+            encoded.len() as _,
+            &raw mut decoded_ptr,
+            &raw mut decoded_size,
+        )
+    };
+
+    if status != 0 {
+        return Err(());
+    }
+
+    let mut decoded = Vec::with_capacity(decoded_size as _);
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            decoded_ptr.cast_const(),
+            decoded.as_mut_ptr(),
+            decoded_size as _,
+        );
+    }
+    unsafe {
+        decoded.set_len(decoded_size as _);
+    }
+    unsafe {
+        lc_framework_sys::lc_free_bytes(decoded_ptr);
+    }
+
+    Ok(decoded)
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Preprocessor {
     Noop,
@@ -150,44 +272,165 @@ pub enum QuantizeDType {
     F64,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Component {
-    // mutators
     Noop,
-    TwosComplementToMagnitudeSign { size: ElemSize },
+    // mutators
+    TwosComplementToSignMagnitude { size: ElemSize },
+    TwosComplementToNegaBinary { size: ElemSize },
+    DebiasedExponentFractionSign { size: FloatSize },
+    DebiasedExponentSignFraction { size: FloatSize },
     // shufflers
     BitShuffle { size: ElemSize },
+    Tuple { size: TupleSize },
+    // predictors
+    Delta { size: ElemSize },
+    DeltaAsSignMagnitude { size: ElemSize },
+    DeltaAsNegaBinary { size: ElemSize },
     // reducers
+    Clog { size: ElemSize },
+    HClog { size: ElemSize },
+    Rare { size: ElemSize },
+    Raze { size: ElemSize },
     RunLengthEncoding { size: ElemSize },
-    // CLOG_1, CLOG_2, CLOG_4, CLOG_8, DBEFS_4, DBEFS_8, DBESF_4, DBESF_8, DIFFMS_1, DIFFMS_2, DIFFMS_4, DIFFMS_8, DIFFNB_1, DIFFNB_2, DIFFNB_4, DIFFNB_8, DIFF_1, DIFF_2, DIFF_4, DIFF_8, HCLOG_1, HCLOG_2, HCLOG_4, HCLOG_8, RARE_1, RARE_2, RARE_4, RARE_8, RAZE_1, RAZE_2, RAZE_4, RAZE_8, RRE_1, RRE_2, RRE_4, RRE_8, RZE_1, RZE_2, RZE_4, RZE_8, TCNB_1, TCNB_2, TCNB_4, TCNB_8, TUPL12_1, TUPL2_1, TUPL2_2, TUPL2_4, TUPL3_1, TUPL3_2, TUPL3_8, TUPL4_1, TUPL4_2, TUPL6_1, TUPL6_2, TUPL6_4, TUPL6_8, TUPL8_1
-}
-
-pub enum ElemSize {
-    S1,
-    S2,
-    S4,
-    S8,
+    RepetitionRunBitmapEncoding { size: ElemSize },
+    ZeroRunBitmapEncoding { size: ElemSize },
 }
 
 impl Component {
     fn as_id(&self) -> lc_framework_sys::LC_CPUcomponents {
         match self {
             Self::Noop => lc_framework_sys::LC_CPUcomponents_NUL_CPUcomponents,
-            Self::TwosComplementToMagnitudeSign { size: ElemSize::S1 } => {
+            // mutators
+            Self::TwosComplementToSignMagnitude { size: ElemSize::S1 } => {
                 lc_framework_sys::LC_CPUcomponents_TCMS_1
             }
-            Self::TwosComplementToMagnitudeSign { size: ElemSize::S2 } => {
+            Self::TwosComplementToSignMagnitude { size: ElemSize::S2 } => {
                 lc_framework_sys::LC_CPUcomponents_TCMS_2
             }
-            Self::TwosComplementToMagnitudeSign { size: ElemSize::S4 } => {
+            Self::TwosComplementToSignMagnitude { size: ElemSize::S4 } => {
                 lc_framework_sys::LC_CPUcomponents_TCMS_4
             }
-            Self::TwosComplementToMagnitudeSign { size: ElemSize::S8 } => {
+            Self::TwosComplementToSignMagnitude { size: ElemSize::S8 } => {
                 lc_framework_sys::LC_CPUcomponents_TCMS_8
             }
+            Self::TwosComplementToNegaBinary { size: ElemSize::S1 } => {
+                lc_framework_sys::LC_CPUcomponents_TCNB_1
+            }
+            Self::TwosComplementToNegaBinary { size: ElemSize::S2 } => {
+                lc_framework_sys::LC_CPUcomponents_TCNB_2
+            }
+            Self::TwosComplementToNegaBinary { size: ElemSize::S4 } => {
+                lc_framework_sys::LC_CPUcomponents_TCNB_4
+            }
+            Self::TwosComplementToNegaBinary { size: ElemSize::S8 } => {
+                lc_framework_sys::LC_CPUcomponents_TCNB_8
+            }
+            Self::DebiasedExponentFractionSign {
+                size: FloatSize::S4,
+            } => lc_framework_sys::LC_CPUcomponents_DBEFS_4,
+            Self::DebiasedExponentFractionSign {
+                size: FloatSize::S8,
+            } => lc_framework_sys::LC_CPUcomponents_DBEFS_8,
+            Self::DebiasedExponentSignFraction {
+                size: FloatSize::S4,
+            } => lc_framework_sys::LC_CPUcomponents_DBESF_4,
+            Self::DebiasedExponentSignFraction {
+                size: FloatSize::S8,
+            } => lc_framework_sys::LC_CPUcomponents_DBESF_8,
+            // shuffle
             Self::BitShuffle { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_BIT_1,
             Self::BitShuffle { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_BIT_2,
             Self::BitShuffle { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_BIT_4,
             Self::BitShuffle { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_BIT_8,
+            Self::Tuple {
+                size: TupleSize::S1x2,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL2_1,
+            Self::Tuple {
+                size: TupleSize::S1x3,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL3_1,
+            Self::Tuple {
+                size: TupleSize::S1x4,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL4_1,
+            Self::Tuple {
+                size: TupleSize::S1x6,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL6_1,
+            Self::Tuple {
+                size: TupleSize::S1x8,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL8_1,
+            Self::Tuple {
+                size: TupleSize::S1x12,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL12_1,
+            Self::Tuple {
+                size: TupleSize::S2x2,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL2_2,
+            Self::Tuple {
+                size: TupleSize::S2x3,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL3_2,
+            Self::Tuple {
+                size: TupleSize::S2x4,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL4_2,
+            Self::Tuple {
+                size: TupleSize::S2x6,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL6_2,
+            Self::Tuple {
+                size: TupleSize::S4x2,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL2_4,
+            Self::Tuple {
+                size: TupleSize::S4x6,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL6_4,
+            Self::Tuple {
+                size: TupleSize::S8x3,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL3_8,
+            Self::Tuple {
+                size: TupleSize::S8x6,
+            } => lc_framework_sys::LC_CPUcomponents_TUPL6_8,
+            // predictors
+            Self::Delta { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_DIFF_1,
+            Self::Delta { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_DIFF_2,
+            Self::Delta { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_DIFF_4,
+            Self::Delta { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_DIFF_8,
+            Self::DeltaAsSignMagnitude { size: ElemSize::S1 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFMS_1
+            }
+            Self::DeltaAsSignMagnitude { size: ElemSize::S2 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFMS_2
+            }
+            Self::DeltaAsSignMagnitude { size: ElemSize::S4 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFMS_4
+            }
+            Self::DeltaAsSignMagnitude { size: ElemSize::S8 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFMS_8
+            }
+            Self::DeltaAsNegaBinary { size: ElemSize::S1 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFNB_1
+            }
+            Self::DeltaAsNegaBinary { size: ElemSize::S2 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFNB_2
+            }
+            Self::DeltaAsNegaBinary { size: ElemSize::S4 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFNB_4
+            }
+            Self::DeltaAsNegaBinary { size: ElemSize::S8 } => {
+                lc_framework_sys::LC_CPUcomponents_DIFFNB_8
+            }
+            // reducers
+            Self::Clog { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_CLOG_1,
+            Self::Clog { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_CLOG_2,
+            Self::Clog { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_CLOG_4,
+            Self::Clog { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_CLOG_8,
+            Self::HClog { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_HCLOG_1,
+            Self::HClog { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_HCLOG_2,
+            Self::HClog { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_HCLOG_4,
+            Self::HClog { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_HCLOG_8,
+            Self::Rare { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_RARE_1,
+            Self::Rare { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_RARE_2,
+            Self::Rare { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_RARE_4,
+            Self::Rare { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_RARE_8,
+            Self::Raze { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_RAZE_1,
+            Self::Raze { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_RAZE_2,
+            Self::Raze { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_RAZE_4,
+            Self::Raze { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_RAZE_8,
             Self::RunLengthEncoding { size: ElemSize::S1 } => {
                 lc_framework_sys::LC_CPUcomponents_RLE_1
             }
@@ -200,122 +443,64 @@ impl Component {
             Self::RunLengthEncoding { size: ElemSize::S8 } => {
                 lc_framework_sys::LC_CPUcomponents_RLE_8
             }
+            Self::RepetitionRunBitmapEncoding { size: ElemSize::S1 } => {
+                lc_framework_sys::LC_CPUcomponents_RRE_1
+            }
+            Self::RepetitionRunBitmapEncoding { size: ElemSize::S2 } => {
+                lc_framework_sys::LC_CPUcomponents_RRE_2
+            }
+            Self::RepetitionRunBitmapEncoding { size: ElemSize::S4 } => {
+                lc_framework_sys::LC_CPUcomponents_RRE_4
+            }
+            Self::RepetitionRunBitmapEncoding { size: ElemSize::S8 } => {
+                lc_framework_sys::LC_CPUcomponents_RRE_8
+            }
+            Self::ZeroRunBitmapEncoding { size: ElemSize::S1 } => {
+                lc_framework_sys::LC_CPUcomponents_RZE_1
+            }
+            Self::ZeroRunBitmapEncoding { size: ElemSize::S2 } => {
+                lc_framework_sys::LC_CPUcomponents_RZE_2
+            }
+            Self::ZeroRunBitmapEncoding { size: ElemSize::S4 } => {
+                lc_framework_sys::LC_CPUcomponents_RZE_4
+            }
+            Self::ZeroRunBitmapEncoding { size: ElemSize::S8 } => {
+                lc_framework_sys::LC_CPUcomponents_RZE_8
+            }
         }
     }
 }
 
-pub fn compress(
-    preprocessors: &[Preprocessor],
-    components: &[Component],
-    input: &[u8],
-) -> Result<Vec<u8>, ()> {
-    let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
-    let mut preprocessor_params = Vec::new();
-    let mut preprocessor_nparams = Vec::with_capacity(preprocessors.len());
-    for preprocessor in preprocessors {
-        preprocessor_ids.push(preprocessor.as_id());
-        let preprocessor_nparams_sum = preprocessor_nparams.len();
-        preprocessor.push_params(&mut preprocessor_params);
-        preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
-    }
-
-    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
-
-    let mut encoded_ptr = std::ptr::null_mut();
-    let mut encoded_size = 0;
-
-    let status = unsafe {
-        lc_framework_sys::lc_compress(
-            preprocessor_ids.len(),
-            preprocessor_ids.as_ptr(),
-            preprocessor_nparams.as_ptr(),
-            preprocessor_params.as_ptr(),
-            component_ids.len(),
-            component_ids.as_ptr(),
-            input.as_ptr(),
-            input.len() as _,
-            &raw mut encoded_ptr,
-            &raw mut encoded_size,
-        )
-    };
-
-    if status != 0 {
-        return Err(());
-    }
-
-    let mut encoded = Vec::with_capacity(encoded_size as _);
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            encoded_ptr.cast_const(),
-            encoded.as_mut_ptr(),
-            encoded_size as _,
-        );
-    }
-    unsafe {
-        encoded.set_len(encoded_size as _);
-    }
-    unsafe {
-        lc_framework_sys::lc_free_bytes(encoded_ptr);
-    }
-
-    Ok(encoded)
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ElemSize {
+    S1,
+    S2,
+    S4,
+    S8,
 }
 
-pub fn decompress(
-    preprocessors: &[Preprocessor],
-    components: &[Component],
-    encoded: &[u8],
-) -> Result<Vec<u8>, ()> {
-    let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
-    let mut preprocessor_params = Vec::new();
-    let mut preprocessor_nparams = Vec::with_capacity(preprocessors.len());
-    for preprocessor in preprocessors {
-        preprocessor_ids.push(preprocessor.as_id());
-        let preprocessor_nparams_sum = preprocessor_nparams.len();
-        preprocessor.push_params(&mut preprocessor_params);
-        preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
-    }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FloatSize {
+    S4,
+    S8,
+}
 
-    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
-
-    let mut decoded_ptr = std::ptr::null_mut();
-    let mut decoded_size = 0;
-
-    let status = unsafe {
-        lc_framework_sys::lc_decompress(
-            preprocessor_ids.len(),
-            preprocessor_ids.as_ptr(),
-            preprocessor_nparams.as_ptr(),
-            preprocessor_params.as_ptr(),
-            component_ids.len(),
-            component_ids.as_ptr(),
-            encoded.as_ptr(),
-            encoded.len() as _,
-            &raw mut decoded_ptr,
-            &raw mut decoded_size,
-        )
-    };
-
-    if status != 0 {
-        return Err(());
-    }
-
-    let mut decoded = Vec::with_capacity(decoded_size as _);
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            decoded_ptr.cast_const(),
-            decoded.as_mut_ptr(),
-            decoded_size as _,
-        );
-    }
-    unsafe {
-        decoded.set_len(decoded_size as _);
-    }
-    unsafe {
-        lc_framework_sys::lc_free_bytes(decoded_ptr);
-    }
-
-    Ok(decoded)
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TupleSize {
+    S1x2,
+    S1x3,
+    S1x4,
+    S1x6,
+    S1x8,
+    S1x12,
+    S2x2,
+    S2x3,
+    S2x4,
+    S2x6,
+    S4x2,
+    S4x6,
+    S8x3,
+    S8x6,
 }
 
 #[cfg(test)]
@@ -324,7 +509,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn foo() {
+    fn bit4_rle4() {
         let preprocessors = &[];
         let components = &[
             Component::BitShuffle { size: ElemSize::S4 },
@@ -332,12 +517,10 @@ mod tests {
         ];
 
         let data = b"abcd";
-        eprintln!("data={data:?}");
 
         let encoded = compress(preprocessors, components, data).unwrap();
-        eprintln!("encoded={encoded:?}");
-
         let decoded = decompress(preprocessors, components, &encoded).unwrap();
-        eprintln!("decoded={decoded:?}");
+
+        assert_eq!(decoded, data);
     }
 }

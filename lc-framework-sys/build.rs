@@ -26,6 +26,7 @@ fn main() {
         .allowlist_function("lc_decompress")
         .allowlist_function("lc_free_bytes")
         .allowlist_var("CS")
+        .allowlist_var("max_stages")
         .allowlist_type("LC_CPUcomponents")
         .allowlist_type("LC_CPUpreprocessor")
         // MSRV 1.85
