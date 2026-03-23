@@ -4,22 +4,6 @@
 
 #include "lc.h"
 
-static std::string available_preprocessors_impl() {
-    std::stringstream ss;
-
-    const std::map<std::string, byte> prepro_name2num = getPreproMap();
-    for (auto pair: prepro_name2num) {
-        ss << pair.first << " ";
-    }
-
-    return ss.str();
-}
-
-extern "C" const char* lc_available_preprocessors() {
-    static std::string preprocessors = available_preprocessors_impl();
-    return preprocessors.c_str();
-}
-
 static std::string available_components_impl() {
     std::stringstream ss;
 
@@ -37,7 +21,10 @@ extern "C" const char* lc_available_components() {
 }
 
 extern "C" int lc_compress(
-    const char* const prepros_cstr,
+    const size_t npepros,
+    const LC_CPUpreprocessor* const prepros_ids,
+    const size_t* const prepros_nparams,
+    const double* const prepros_params,
     const char* const comp_cstr,
     const byte* const input,
     const long long insize,
@@ -62,15 +49,22 @@ extern "C" int lc_compress(
         comp_num2name[pair.second] = pair.first;
         }
 
+        std::vector<std::pair<byte, std::vector<double>>> prepros;
+        size_t prepros_params_cnt = 0;
+        for (auto i = 0; i < npepros; ++i) {
+            std::vector<double> params = {
+                prepros_params + prepros_params_cnt,
+                prepros_params + prepros_params_cnt + prepros_nparams[i],
+            };
+            prepros_params_cnt += prepros_nparams[i];
+            prepros.push_back(std::make_pair((byte)prepros_ids[i], params));
+        }
+
         int stages;
         unsigned long long algorithms;
-        std::vector<std::pair<byte, std::vector<double>>> prepros;
         std::vector<std::vector<byte>> comp_list;
 
-        auto prepros_str = std::string(prepros_cstr);
         auto comp_str = std::string(comp_cstr);
-
-        prepros = getItems(prepro_name2num, prepros_str.data());
         comp_list = getStages(comp_name2num, comp_str.data(), stages, algorithms);
         if (algorithms != 1) {
             fprintf(stderr, "ERROR: pipeline must describe one algorithm\n\n");
@@ -128,7 +122,10 @@ extern "C" void lc_free_bytes(byte* data) {
 }
 
 extern "C" int lc_decompress(
-    const char* const prepros_cstr,
+    const size_t npepros,
+    const LC_CPUpreprocessor* const prepros_ids,
+    const size_t* const prepros_nparams,
+    const double* const prepros_params,
     const char* const comp_cstr,
     const byte* const encoded,
     const long long encsize,
@@ -153,15 +150,22 @@ extern "C" int lc_decompress(
         comp_num2name[pair.second] = pair.first;
         }
 
+        std::vector<std::pair<byte, std::vector<double>>> prepros;
+        size_t prepros_params_cnt = 0;
+        for (auto i = 0; i < npepros; ++i) {
+            std::vector<double> params = {
+                prepros_params + prepros_params_cnt,
+                prepros_params + prepros_params_cnt + prepros_nparams[i],
+            };
+            prepros_params_cnt += prepros_nparams[i];
+            prepros.push_back(std::make_pair((byte)prepros_ids[i], params));
+        }
+
         int stages;
         unsigned long long algorithms;
-        std::vector<std::pair<byte, std::vector<double>>> prepros;
         std::vector<std::vector<byte>> comp_list;
 
-        auto prepros_str = std::string(prepros_cstr);
         auto comp_str = std::string(comp_cstr);
-
-        prepros = getItems(prepro_name2num, prepros_str.data());
         comp_list = getStages(comp_name2num, comp_str.data(), stages, algorithms);
         if (algorithms != 1) {
             fprintf(stderr, "ERROR: pipeline must describe one algorithm\n\n");
@@ -194,7 +198,7 @@ extern "C" int lc_decompress(
           while ((schain >> 56) == 0) schain <<= 8;
         }
         h_decode(schain, encoded, hdecoded, hdecsize);
-        
+
         // CPU preprocessor decoding
         hpredecdata = new byte [hdecsize];
         std::copy(hdecoded, hdecoded + hdecsize, hpredecdata);

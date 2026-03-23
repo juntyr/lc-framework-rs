@@ -22,12 +22,13 @@ fn main() {
         .clang_arg("-DUSE_CPU")
         .header("wrapper.hpp")
         .parse_callbacks(Box::new(cargo_callbacks))
-        .allowlist_function("lc_available_preprocessors")
         .allowlist_function("lc_available_components")
         .allowlist_function("lc_compress")
         .allowlist_function("lc_decompress")
         .allowlist_function("lc_free_bytes")
         .allowlist_var("CS")
+        .allowlist_type("LC_CPUcomponents")
+        .allowlist_type("LC_CPUpreprocessor")
         // MSRV 1.85
         .rust_target(match bindgen::RustTarget::stable(85, 0) {
             Ok(target) => target,
