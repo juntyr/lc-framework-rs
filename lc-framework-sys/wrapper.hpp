@@ -1,4 +1,3 @@
-#include <cassert>
 #include <iostream>
 
 #include "lc.h"
@@ -37,8 +36,12 @@ extern "C" int lc_compress(
         }
         auto stages = comp_list.size();
 
-        if (insize <= 0) {fprintf(stderr, "ERROR: input too small\n\n"); throw std::runtime_error("LC error");}
-        if (insize >= 9223372036854775807) {fprintf(stderr, "ERROR: input too large\n\n"); throw std::runtime_error("LC error");}
+        if (insize <= 0) {
+            fprintf(stderr, "ERROR: input too small\n\n"); throw std::runtime_error("LC error");
+        }
+        if (insize >= std::numeric_limits<long long>::max()) {
+            fprintf(stderr, "ERROR: input too large\n\n"); throw std::runtime_error("LC error");
+        }
 
         // CPU preprocessor encoding
         hpreencdata = new byte [insize];

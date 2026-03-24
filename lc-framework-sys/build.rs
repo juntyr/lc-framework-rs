@@ -1,5 +1,8 @@
+#![allow(missing_docs)]
+
 use std::{env, path::PathBuf};
 
+#[expect(clippy::expect_used)]
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=lib.cpp");

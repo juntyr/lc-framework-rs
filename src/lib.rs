@@ -1,57 +1,113 @@
+//! [![CI Status]][workflow] [![MSRV]][repo] [![Latest Version]][crates.io]
+//! [![Rust Doc Crate]][docs.rs] [![Rust Doc Main]][docs]
+//!
+//! [CI Status]: https://img.shields.io/github/actions/workflow/status/juntyr/lc-framework-rs/ci.yml?branch=main
+//! [workflow]: https://github.com/juntyr/lc-framework-rs/actions/workflows/ci.yml?query=branch%3Amain
+//!
+//! [MSRV]: https://img.shields.io/badge/MSRV-1.85.0-blue
+//! [repo]: https://github.com/juntyr/lc-framework-rs
+//!
+//! [Latest Version]: https://img.shields.io/crates/v/lc-framework
+//! [crates.io]: https://crates.io/crates/lc-framework
+//!
+//! [Rust Doc Crate]: https://img.shields.io/docsrs/lc-framework
+//! [docs.rs]: https://docs.rs/lc-framework/
+//!
+//! [Rust Doc Main]: https://img.shields.io/badge/docs-main-blue
+//! [docs]: https://juntyr.github.io/lc-framework-rs/lc_framework
+//!
+//! # lc-framework
+//!
+//! High-level Rust bindigs to the [LC] compression framework.
+//!
+//! [LC]: https://github.com/burtscher/LC-framework
+
+use std::ffi::c_longlong;
+
+/// Compress the `input` data with LC using zero or more `preprocessors` and
+/// one or more `components`.
+///
+/// # Errors
+///
+/// Errors with
+/// - [`Error::TooFewComponents`] if no `components` are given
+/// - [`Error::TooManyComponents`] if too many `components` are given
+/// - [`Error::ExcessiveInputData`] if the `input` data is too large
+/// - [`Error::CompressionFailed`] if compression with LC failed
+/// - [`Error::ExcessiveCompressedData`] if the compressed data is too large
 pub fn compress(
     preprocessors: &[Preprocessor],
     components: &[Component],
     input: &[u8],
-) -> Result<Vec<u8>, ()> {
+) -> Result<Vec<u8>, Error> {
     let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
     let mut preprocessor_params = Vec::new();
-    let mut preprocessor_nparams = Vec::with_capacity(preprocessors.len());
+    let mut preprocessor_params_num = Vec::with_capacity(preprocessors.len());
     for preprocessor in preprocessors {
         preprocessor_ids.push(preprocessor.as_id());
-        let preprocessor_nparams_sum = preprocessor_nparams.len();
+        let preprocessor_nparams_sum = preprocessor_params_num.len();
         preprocessor.push_params(&mut preprocessor_params);
-        preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
+        preprocessor_params_num.push(preprocessor_params_num.len() - preprocessor_nparams_sum);
     }
 
-    if components.is_empty() || components.len() > (lc_framework_sys::max_stages as _) {
-        return Err(());
+    if components.is_empty() {
+        return Err(Error::TooFewComponents);
     }
 
-    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
+    if components.len() > lc_framework_sys::MAX_STAGES {
+        return Err(Error::TooManyComponents);
+    }
+
+    let component_ids = components
+        .iter()
+        .copied()
+        .map(Component::as_id)
+        .collect::<Vec<_>>();
+
+    let input_size: c_longlong = input
+        .len()
+        .try_into()
+        .map_err(|_| Error::ExcessiveInputData)?;
 
     let mut encoded_ptr = std::ptr::null_mut();
     let mut encoded_size = 0;
 
+    #[expect(unsafe_code)]
+    // SAFETY: all pointers and lengths are valid
     let status = unsafe {
         lc_framework_sys::lc_compress(
             preprocessor_ids.len(),
             preprocessor_ids.as_ptr(),
-            preprocessor_nparams.as_ptr(),
+            preprocessor_params_num.as_ptr(),
             preprocessor_params.as_ptr(),
             component_ids.len(),
             component_ids.as_ptr(),
             input.as_ptr(),
-            input.len() as _,
+            input_size,
             &raw mut encoded_ptr,
             &raw mut encoded_size,
         )
     };
 
     if status != 0 {
-        return Err(());
+        return Err(Error::CompressionFailed);
     }
 
-    let mut encoded = Vec::with_capacity(encoded_size as _);
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            encoded_ptr.cast_const(),
-            encoded.as_mut_ptr(),
-            encoded_size as _,
-        );
-    }
-    unsafe {
-        encoded.set_len(encoded_size as _);
-    }
+    let encoded_len: usize = encoded_size
+        .try_into()
+        .map_err(|_| Error::ExcessiveCompressedData)?;
+
+    #[expect(unsafe_code)]
+    // SAFETY: all Vec elements are initialised via the copy
+    let encoded = unsafe {
+        let mut encoded = Vec::with_capacity(encoded_len);
+        std::ptr::copy_nonoverlapping(encoded_ptr.cast_const(), encoded.as_mut_ptr(), encoded_len);
+        encoded.set_len(encoded_len);
+        encoded
+    };
+
+    #[expect(unsafe_code)]
+    // SAFETY: encoded_ptr was allocated by LC
     unsafe {
         lc_framework_sys::lc_free_bytes(encoded_ptr);
     }
@@ -59,60 +115,96 @@ pub fn compress(
     Ok(encoded)
 }
 
+/// Dempress the `compressed` data with LC using zero or more `preprocessors`
+/// and one or more `components`.
+///
+/// The `compressed` data must have been [`compress`]ed using the same
+/// `preprocessors` and `components`.
+///
+/// # Errors
+///
+/// Errors with
+/// - [`Error::TooFewComponents`] if no `components` are given
+/// - [`Error::TooManyComponents`] if too many `components` are given
+/// - [`Error::ExcessiveCompressedData`] if the `compressed` data is too large
+/// - [`Error::DecompressionFailed`] if decompression with LC failed
+/// - [`Error::ExcessiveDecompressedData`] if the decompressed data is too
+///   large
 pub fn decompress(
     preprocessors: &[Preprocessor],
     components: &[Component],
-    encoded: &[u8],
-) -> Result<Vec<u8>, ()> {
+    compressed: &[u8],
+) -> Result<Vec<u8>, Error> {
+    let encoded = compressed;
+
     let mut preprocessor_ids = Vec::with_capacity(preprocessors.len());
     let mut preprocessor_params = Vec::new();
-    let mut preprocessor_nparams = Vec::with_capacity(preprocessors.len());
+    let mut preprocessor_params_num = Vec::with_capacity(preprocessors.len());
     for preprocessor in preprocessors {
         preprocessor_ids.push(preprocessor.as_id());
-        let preprocessor_nparams_sum = preprocessor_nparams.len();
+        let preprocessor_nparams_sum = preprocessor_params_num.len();
         preprocessor.push_params(&mut preprocessor_params);
-        preprocessor_nparams.push(preprocessor_nparams.len() - preprocessor_nparams_sum);
+        preprocessor_params_num.push(preprocessor_params_num.len() - preprocessor_nparams_sum);
     }
 
-    if components.is_empty() || components.len() > (lc_framework_sys::max_stages as _) {
-        return Err(());
+    if components.is_empty() {
+        return Err(Error::TooFewComponents);
     }
 
-    let component_ids = components.iter().map(Component::as_id).collect::<Vec<_>>();
+    if components.len() > lc_framework_sys::MAX_STAGES {
+        return Err(Error::TooManyComponents);
+    }
+
+    let component_ids = components
+        .iter()
+        .copied()
+        .map(Component::as_id)
+        .collect::<Vec<_>>();
+
+    let encoded_size: c_longlong = encoded
+        .len()
+        .try_into()
+        .map_err(|_| Error::ExcessiveCompressedData)?;
 
     let mut decoded_ptr = std::ptr::null_mut();
     let mut decoded_size = 0;
 
+    #[expect(unsafe_code)]
+    // SAFETY: all pointers and lengths are valid
     let status = unsafe {
         lc_framework_sys::lc_decompress(
             preprocessor_ids.len(),
             preprocessor_ids.as_ptr(),
-            preprocessor_nparams.as_ptr(),
+            preprocessor_params_num.as_ptr(),
             preprocessor_params.as_ptr(),
             component_ids.len(),
             component_ids.as_ptr(),
             encoded.as_ptr(),
-            encoded.len() as _,
+            encoded_size,
             &raw mut decoded_ptr,
             &raw mut decoded_size,
         )
     };
 
     if status != 0 {
-        return Err(());
+        return Err(Error::DecompressionFailed);
     }
 
-    let mut decoded = Vec::with_capacity(decoded_size as _);
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            decoded_ptr.cast_const(),
-            decoded.as_mut_ptr(),
-            decoded_size as _,
-        );
-    }
-    unsafe {
-        decoded.set_len(decoded_size as _);
-    }
+    let decoded_len: usize = decoded_size
+        .try_into()
+        .map_err(|_| Error::ExcessiveDecompressedData)?;
+
+    #[expect(unsafe_code)]
+    // SAFETY: all Vec elements are initialised via the copy
+    let decoded = unsafe {
+        let mut decoded = Vec::with_capacity(decoded_len);
+        std::ptr::copy_nonoverlapping(decoded_ptr.cast_const(), decoded.as_mut_ptr(), decoded_len);
+        decoded.set_len(decoded_len);
+        decoded
+    };
+
+    #[expect(unsafe_code)]
+    // SAFETY: encoded_ptr was allocated by LC
     unsafe {
         lc_framework_sys::lc_free_bytes(decoded_ptr);
     }
@@ -120,7 +212,35 @@ pub fn decompress(
     Ok(decoded)
 }
 
+#[derive(Debug, thiserror::Error)]
+/// Errors that can occur during compression and decompression with LC
+pub enum Error {
+    /// at least one component must be given
+    #[error("at least one component must be given")]
+    TooFewComponents,
+    /// too many components were given
+    #[error("at most {max_stages} components must be given", max_stages=lc_framework_sys::MAX_STAGES)]
+    TooManyComponents,
+    /// input data is too large
+    #[error("input data must not exceed {max_bytes} bytes", max_bytes=c_longlong::MAX)]
+    ExcessiveInputData,
+    /// internal compression error
+    #[error("internal compression error")]
+    CompressionFailed,
+    /// compressed data is too large
+    #[error("compressed data must not exceed {max_bytes} bytes", max_bytes=c_longlong::MAX)]
+    ExcessiveCompressedData,
+    /// internal decompression error
+    #[error("internal decompression error")]
+    DecompressionFailed,
+    /// decompressed data is too large
+    #[error("decompressed data must not exceed {max_bytes} bytes", max_bytes=c_longlong::MAX)]
+    ExcessiveDecompressedData,
+}
+
+#[expect(missing_docs)]
 #[derive(Clone, Debug, PartialEq)]
+/// LC preprocessor
 pub enum Preprocessor {
     Noop,
     Lorenzo1D {
@@ -136,7 +256,7 @@ pub enum Preprocessor {
 }
 
 impl Preprocessor {
-    fn as_id(&self) -> lc_framework_sys::LC_CPUpreprocessor {
+    const fn as_id(&self) -> lc_framework_sys::LC_CPUpreprocessor {
         match self {
             Self::Noop => lc_framework_sys::LC_CPUpreprocessor_NUL_CPUpreprocessor,
             Self::Lorenzo1D {
@@ -249,30 +369,42 @@ impl Preprocessor {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC error bound kind
 pub enum ErrorKind {
+    /// pointwise absolute error bound
     Abs,
+    /// pointwise normalised absolute / data-range-relative error bound
     Noa,
+    /// pointwise relative error bound
     Rel,
 }
 
+#[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC quantisation decorrelation mode
 pub enum Decorrelation {
     Zero,
     Random,
 }
 
+#[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC Lorenzo preprocessor dtype
 pub enum LorenzoDtype {
     I32,
 }
 
+#[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC quantization dtype
 pub enum QuantizeDType {
     F32,
     F64,
 }
 
+#[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC component
 pub enum Component {
     Noop,
     // mutators
@@ -298,7 +430,8 @@ pub enum Component {
 }
 
 impl Component {
-    fn as_id(&self) -> lc_framework_sys::LC_CPUcomponents {
+    #[expect(clippy::too_many_lines)]
+    const fn as_id(self) -> lc_framework_sys::LC_CPUcomponents {
         match self {
             Self::Noop => lc_framework_sys::LC_CPUcomponents_NUL_CPUcomponents,
             // mutators
@@ -471,7 +604,9 @@ impl Component {
     }
 }
 
+#[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC component element size, in bytes
 pub enum ElemSize {
     S1,
     S2,
@@ -479,13 +614,17 @@ pub enum ElemSize {
     S8,
 }
 
+#[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC component float element size, in bytes
 pub enum FloatSize {
     S4,
     S8,
 }
 
+#[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// LC tuple component element size, in bytes x tuple length
 pub enum TupleSize {
     S1x2,
     S1x3,

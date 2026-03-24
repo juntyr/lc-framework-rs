@@ -1,9 +1,12 @@
+#![allow(missing_docs)]
+
 use std::{
     env,
     path::{Path, PathBuf},
     process::Command,
 };
 
+#[expect(clippy::expect_used)]
 fn main() {
     let src = Path::new("LC-framework");
 
