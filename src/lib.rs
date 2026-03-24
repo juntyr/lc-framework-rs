@@ -24,6 +24,19 @@
 
 use std::ffi::c_longlong;
 
+/// Maximum number of components
+pub const MAX_COMPONENTS: usize = lc_framework_sys::MAX_STAGES;
+
+/// Maximum number of bytes
+pub const MAX_BYTES: usize = const {
+    #[allow(clippy::cast_possible_truncation)]
+    if std::mem::size_of::<c_longlong>() <= std::mem::size_of::<usize>() {
+        c_longlong::MAX as usize
+    } else {
+        usize::MAX
+    }
+};
+
 /// Compress the `input` data with LC using zero or more `preprocessors` and
 /// one or more `components`.
 ///
@@ -54,7 +67,7 @@ pub fn compress(
         return Err(Error::TooFewComponents);
     }
 
-    if components.len() > lc_framework_sys::MAX_STAGES {
+    if components.len() > MAX_COMPONENTS {
         return Err(Error::TooManyComponents);
     }
 
@@ -151,7 +164,7 @@ pub fn decompress(
         return Err(Error::TooFewComponents);
     }
 
-    if components.len() > lc_framework_sys::MAX_STAGES {
+    if components.len() > MAX_COMPONENTS {
         return Err(Error::TooManyComponents);
     }
 
@@ -219,22 +232,22 @@ pub enum Error {
     #[error("at least one component must be given")]
     TooFewComponents,
     /// too many components were given
-    #[error("at most {max_stages} components must be given", max_stages=lc_framework_sys::MAX_STAGES)]
+    #[error("at most {MAX_COMPONENTS} components must be given")]
     TooManyComponents,
     /// input data is too large
-    #[error("input data must not exceed {max_bytes} bytes", max_bytes=c_longlong::MAX)]
+    #[error("input data must not exceed {MAX_BYTES} bytes")]
     ExcessiveInputData,
     /// internal compression error
     #[error("internal compression error")]
     CompressionFailed,
     /// compressed data is too large
-    #[error("compressed data must not exceed {max_bytes} bytes", max_bytes=c_longlong::MAX)]
+    #[error("compressed data must not exceed {MAX_BYTES} bytes")]
     ExcessiveCompressedData,
     /// internal decompression error
     #[error("internal decompression error")]
     DecompressionFailed,
     /// decompressed data is too large
-    #[error("decompressed data must not exceed {max_bytes} bytes", max_bytes=c_longlong::MAX)]
+    #[error("decompressed data must not exceed {MAX_BYTES} bytes")]
     ExcessiveDecompressedData,
 }
 
