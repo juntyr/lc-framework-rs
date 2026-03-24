@@ -45,9 +45,9 @@ pub fn compress(
     let mut preprocessor_params_num = Vec::with_capacity(preprocessors.len());
     for preprocessor in preprocessors {
         preprocessor_ids.push(preprocessor.as_id());
-        let preprocessor_nparams_sum = preprocessor_params_num.len();
+        let preprocessor_nparams_sum = preprocessor_params.len();
         preprocessor.push_params(&mut preprocessor_params);
-        preprocessor_params_num.push(preprocessor_params_num.len() - preprocessor_nparams_sum);
+        preprocessor_params_num.push(preprocessor_params.len() - preprocessor_nparams_sum);
     }
 
     if components.is_empty() {
@@ -142,9 +142,9 @@ pub fn decompress(
     let mut preprocessor_params_num = Vec::with_capacity(preprocessors.len());
     for preprocessor in preprocessors {
         preprocessor_ids.push(preprocessor.as_id());
-        let preprocessor_nparams_sum = preprocessor_params_num.len();
+        let preprocessor_nparams_sum = preprocessor_params.len();
         preprocessor.push_params(&mut preprocessor_params);
-        preprocessor_params_num.push(preprocessor_params_num.len() - preprocessor_nparams_sum);
+        preprocessor_params_num.push(preprocessor_params.len() - preprocessor_nparams_sum);
     }
 
     if components.is_empty() {
