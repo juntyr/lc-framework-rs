@@ -670,9 +670,72 @@ mod tests {
 
         let data = b"abcd";
 
-        let encoded = compress(preprocessors, components, data).unwrap();
-        let decoded = decompress(preprocessors, components, &encoded).unwrap();
+        let compressed = compress(preprocessors, components, data).unwrap();
+        let decompressed = decompress(preprocessors, components, &compressed).unwrap();
 
-        assert_eq!(decoded, data);
+        assert_eq!(decompressed, data);
+    }
+
+    #[test]
+    fn abs_error() {
+        let data = (0..100_u16)
+            .map(|x| f32::from(x) / 100.0)
+            .map(|x| std::f32::consts::PI * x)
+            .map(f32::cos)
+            .collect::<Vec<_>>();
+        #[expect(unsafe_code)]
+        // SAFETY:
+        // - read-only access to the underlying bytes
+        // - f32 is a plain-old data type
+        let data_bytes = unsafe {
+            std::slice::from_raw_parts(data.as_ptr().cast(), std::mem::size_of_val(data.as_slice()))
+        };
+
+        let error_bound = 0.1;
+
+        let preprocessors = &[Preprocessor::QuantizeErrorBound {
+            dtype: QuantizeDType::F32,
+            kind: ErrorKind::Abs,
+            error_bound,
+            threshold: None,
+            decorrelation: Decorrelation::Zero,
+        }];
+        let components = &[
+            Component::BitShuffle { size: ElemSize::S4 },
+            Component::RunLengthEncoding { size: ElemSize::S4 },
+        ];
+
+        let compressed = compress(preprocessors, components, data_bytes).unwrap();
+
+        for i in 0..std::mem::size_of::<c_longlong>() {
+            let mut compressed_unaligned = Vec::with_capacity(compressed.len() + i);
+            compressed_unaligned.extend(std::iter::repeat_n(b'\0', i));
+            compressed_unaligned.extend_from_slice(&compressed);
+
+            let decompressed_bytes = decompress(
+                preprocessors,
+                components,
+                compressed_unaligned.get(i..).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(decompressed_bytes.len(), data_bytes.len());
+
+            #[expect(unsafe_code)]
+            // SAFETY: initialise aligned f32s with unaligned bytes
+            let decompressed = unsafe {
+                let mut decompressed = Vec::<f32>::with_capacity(data.len());
+                std::ptr::copy_nonoverlapping(
+                    decompressed_bytes.as_ptr(),
+                    decompressed.as_mut_ptr().cast(),
+                    data_bytes.len(),
+                );
+                decompressed.set_len(data.len());
+                decompressed
+            };
+
+            for (o, d) in data.iter().copied().zip(decompressed) {
+                assert!(f64::from((o - d).abs()) <= error_bound);
+            }
+        }
     }
 }

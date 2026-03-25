@@ -99,6 +99,7 @@ extern "C" int lc_decompress(
     byte** decoded,
     long long* decsize
 ) {
+    byte* hencoded = nullptr;
     byte* hdecoded = nullptr;
     byte* hpredecdata = nullptr;
 
@@ -126,7 +127,9 @@ extern "C" int lc_decompress(
         std::memcpy(&pre_size, encoded, sizeof(pre_size));
 
         // allocate CPU memory
-        byte* hdecoded = new byte [pre_size];
+        hencoded = new byte [std::max(pre_size, encsize)];
+        std::copy(encoded, encoded + encsize, hencoded);
+        hdecoded = new byte [pre_size];
         long long hdecsize = 0;
 
         // create chain for current combination and output
@@ -150,6 +153,7 @@ extern "C" int lc_decompress(
         long long hpredecsize = hdecsize;
         h_preprocess_decode(hpredecsize, hpredecdata, prepros);
 
+        delete [] hencoded;
         delete [] hdecoded;
 
         *decoded = hpredecdata;
@@ -160,6 +164,7 @@ extern "C" int lc_decompress(
     catch(const std::exception &ex) {
         std::cerr << ex.what() << std::endl;
 
+        if (hencoded != nullptr) delete [] hdecoded;
         if (hdecoded != nullptr) delete [] hdecoded;
         if (hpredecdata != nullptr) delete [] hpredecdata;
 
