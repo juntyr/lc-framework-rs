@@ -18,7 +18,7 @@ lc_compress(const size_t npepros,
     byte* hencoded = nullptr;
 
     try {
-        if (ncomps > sizeof(long long)) {
+        if (ncomps > max_stages) {
             fprintf(stderr, "ERROR: too many components\n\n");
             throw std::runtime_error("LC error");
         }
@@ -111,7 +111,7 @@ lc_decompress(const size_t npepros,
     byte* hdecoded = nullptr;
 
     try {
-        if (ncomps > sizeof(long long)) {
+        if (ncomps > max_stages) {
             fprintf(stderr, "ERROR: too many components\n\n");
             throw std::runtime_error("LC error");
         }
