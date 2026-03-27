@@ -1,6 +1,6 @@
 [package]
 name = "lc-framework-src"
-version = "0.1.0"
+version = "0.1.0+lc.2025"
 edition = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
