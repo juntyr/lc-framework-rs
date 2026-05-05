@@ -51,7 +51,7 @@ multiple_crate_versions = "warn"
 
 [package]
 name = "lc-framework"
-version = "0.1.0+lc.2025"
+version = "0.2.0+lc.2025"
 edition = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }

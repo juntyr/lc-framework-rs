@@ -433,13 +433,13 @@ pub enum Component {
     DeltaAsSignMagnitude { size: ElemSize },
     DeltaAsNegaBinary { size: ElemSize },
     // reducers
-    Clog { size: ElemSize },
-    HClog { size: ElemSize },
-    Rare { size: ElemSize },
-    Raze { size: ElemSize },
+    ChunkedLeadingZeroBitElimination { size: ElemSize },
+    HybridChunkedLeadingZeroBitElimination { size: ElemSize },
+    RepeatedAdaptiveRedundancyElimination { size: ElemSize },
+    RepeatedAdaptiveZeroElimination { size: ElemSize },
     RunLengthEncoding { size: ElemSize },
-    RepetitionRunBitmapEncoding { size: ElemSize },
-    ZeroRunBitmapEncoding { size: ElemSize },
+    RepeatedRedundancyElimination { size: ElemSize },
+    RepeatedZeroElimination { size: ElemSize },
 }
 
 impl Component {
@@ -561,22 +561,22 @@ impl Component {
                 lc_framework_sys::LC_CPUcomponents_DIFFNB_8
             }
             // reducers
-            Self::Clog { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_CLOG_1,
-            Self::Clog { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_CLOG_2,
-            Self::Clog { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_CLOG_4,
-            Self::Clog { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_CLOG_8,
-            Self::HClog { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_HCLOG_1,
-            Self::HClog { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_HCLOG_2,
-            Self::HClog { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_HCLOG_4,
-            Self::HClog { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_HCLOG_8,
-            Self::Rare { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_RARE_1,
-            Self::Rare { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_RARE_2,
-            Self::Rare { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_RARE_4,
-            Self::Rare { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_RARE_8,
-            Self::Raze { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_RAZE_1,
-            Self::Raze { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_RAZE_2,
-            Self::Raze { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_RAZE_4,
-            Self::Raze { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_RAZE_8,
+            Self::ChunkedLeadingZeroBitElimination { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_CLOG_1,
+            Self::ChunkedLeadingZeroBitElimination { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_CLOG_2,
+            Self::ChunkedLeadingZeroBitElimination { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_CLOG_4,
+            Self::ChunkedLeadingZeroBitElimination { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_CLOG_8,
+            Self::HybridChunkedLeadingZeroBitElimination { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_HCLOG_1,
+            Self::HybridChunkedLeadingZeroBitElimination { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_HCLOG_2,
+            Self::HybridChunkedLeadingZeroBitElimination { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_HCLOG_4,
+            Self::HybridChunkedLeadingZeroBitElimination { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_HCLOG_8,
+            Self::RepeatedAdaptiveRedundancyElimination { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_RARE_1,
+            Self::RepeatedAdaptiveRedundancyElimination { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_RARE_2,
+            Self::RepeatedAdaptiveRedundancyElimination { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_RARE_4,
+            Self::RepeatedAdaptiveRedundancyElimination { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_RARE_8,
+            Self::RepeatedAdaptiveZeroElimination { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_RAZE_1,
+            Self::RepeatedAdaptiveZeroElimination { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_RAZE_2,
+            Self::RepeatedAdaptiveZeroElimination { size: ElemSize::S4 } => lc_framework_sys::LC_CPUcomponents_RAZE_4,
+            Self::RepeatedAdaptiveZeroElimination { size: ElemSize::S8 } => lc_framework_sys::LC_CPUcomponents_RAZE_8,
             Self::RunLengthEncoding { size: ElemSize::S1 } => {
                 lc_framework_sys::LC_CPUcomponents_RLE_1
             }
@@ -589,28 +589,28 @@ impl Component {
             Self::RunLengthEncoding { size: ElemSize::S8 } => {
                 lc_framework_sys::LC_CPUcomponents_RLE_8
             }
-            Self::RepetitionRunBitmapEncoding { size: ElemSize::S1 } => {
+            Self::RepeatedRedundancyElimination { size: ElemSize::S1 } => {
                 lc_framework_sys::LC_CPUcomponents_RRE_1
             }
-            Self::RepetitionRunBitmapEncoding { size: ElemSize::S2 } => {
+            Self::RepeatedRedundancyElimination { size: ElemSize::S2 } => {
                 lc_framework_sys::LC_CPUcomponents_RRE_2
             }
-            Self::RepetitionRunBitmapEncoding { size: ElemSize::S4 } => {
+            Self::RepeatedRedundancyElimination { size: ElemSize::S4 } => {
                 lc_framework_sys::LC_CPUcomponents_RRE_4
             }
-            Self::RepetitionRunBitmapEncoding { size: ElemSize::S8 } => {
+            Self::RepeatedRedundancyElimination { size: ElemSize::S8 } => {
                 lc_framework_sys::LC_CPUcomponents_RRE_8
             }
-            Self::ZeroRunBitmapEncoding { size: ElemSize::S1 } => {
+            Self::RepeatedZeroElimination { size: ElemSize::S1 } => {
                 lc_framework_sys::LC_CPUcomponents_RZE_1
             }
-            Self::ZeroRunBitmapEncoding { size: ElemSize::S2 } => {
+            Self::RepeatedZeroElimination { size: ElemSize::S2 } => {
                 lc_framework_sys::LC_CPUcomponents_RZE_2
             }
-            Self::ZeroRunBitmapEncoding { size: ElemSize::S4 } => {
+            Self::RepeatedZeroElimination { size: ElemSize::S4 } => {
                 lc_framework_sys::LC_CPUcomponents_RZE_4
             }
-            Self::ZeroRunBitmapEncoding { size: ElemSize::S8 } => {
+            Self::RepeatedZeroElimination { size: ElemSize::S8 } => {
                 lc_framework_sys::LC_CPUcomponents_RZE_8
             }
         }
