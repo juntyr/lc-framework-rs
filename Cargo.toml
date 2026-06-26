@@ -10,9 +10,9 @@ rust-version = "1.85"  # keep in sync with bindgen MSRV
 
 [workspace.dependencies]
 # workspace-internal crates
-lc-framework = { version = "0.1", path = ".", default-features = false }
-lc-framework-src = { version = "0.1", path = "lc-framework-src", default-features = false }
-lc-framework-sys = { version = "0.1", path = "lc-framework-sys", default-features = false }
+lc-framework = { version = "0.2", path = ".", default-features = false }
+lc-framework-src = { version = "0.2", path = "lc-framework-src", default-features = false }
+lc-framework-sys = { version = "0.2", path = "lc-framework-sys", default-features = false }
 
 # crates.io third-party dependencies
 bindgen = { version = "0.72", default-features = false }
@@ -51,7 +51,7 @@ multiple_crate_versions = "warn"
 
 [package]
 name = "lc-framework"
-version = "0.2.0+lc.2025"
+version = "0.2.0+lc.2026.06"
 edition = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }

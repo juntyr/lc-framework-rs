@@ -1,6 +1,6 @@
 [package]
 name = "lc-framework-sys"
-version = "0.1.0+lc.2025"
+version = "0.2.0+lc.2026.06"
 edition = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
