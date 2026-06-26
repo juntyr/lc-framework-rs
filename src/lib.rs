@@ -738,14 +738,6 @@ pub enum ElemSize {
 
 #[expect(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// LC component float element size, in bytes
-pub enum FloatSize {
-    S4,
-    S8,
-}
-
-#[expect(missing_docs)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// LC tuple component element size, in bytes x tuple length
 pub enum TupleSize {
     S1x2,
