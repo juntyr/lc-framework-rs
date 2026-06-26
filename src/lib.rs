@@ -261,14 +261,20 @@ pub enum Preprocessor {
     },
     QuantizeErrorBound {
         dtype: QuantizeDType,
-        kind: ErrorKind,
-        error_bound: f64,
+        error_bound: ErrorBound,
+        /// Any value whose magnitude is at or above the `threshold` is
+        /// retained losslessly.
         threshold: Option<f64>,
         decorrelation: Decorrelation,
+    },
+    BinaryQuantizeErrorBound {
+        dtype: QuantizeDType,
+        error_bound: BinaryErrorBound,
     },
 }
 
 impl Preprocessor {
+    #[expect(clippy::too_many_lines)]
     const fn as_id(&self) -> lc_framework_sys::LC_CPUpreprocessor {
         match self {
             Self::Noop => lc_framework_sys::LC_CPUpreprocessor_NUL_CPUpreprocessor,
@@ -277,88 +283,116 @@ impl Preprocessor {
             } => lc_framework_sys::LC_CPUpreprocessor_LOR1D_i32,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F32,
-                kind: ErrorKind::Abs,
-                error_bound: _,
+                error_bound: ErrorBound::Abs { abs: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Zero,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_0_f32,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F32,
-                kind: ErrorKind::Abs,
-                error_bound: _,
+                error_bound: ErrorBound::Abs { abs: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Random,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_R_f32,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F32,
-                kind: ErrorKind::Noa,
-                error_bound: _,
+                error_bound: ErrorBound::Noa { noa: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Zero,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_NOA_0_f32,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F32,
-                kind: ErrorKind::Noa,
-                error_bound: _,
+                error_bound: ErrorBound::Noa { noa: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Random,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_NOA_R_f32,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F32,
-                kind: ErrorKind::Rel,
-                error_bound: _,
+                error_bound: ErrorBound::Rel { rel: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Zero,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_REL_0_f32,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F32,
-                kind: ErrorKind::Rel,
-                error_bound: _,
+                error_bound: ErrorBound::Rel { rel: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Random,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_REL_R_f32,
             Self::QuantizeErrorBound {
+                dtype: QuantizeDType::F32,
+                error_bound: ErrorBound::AbsRel { abs: _, rel: _ },
+                threshold: _,
+                decorrelation: Decorrelation::Zero,
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_REL_0_f32,
+            Self::QuantizeErrorBound {
+                dtype: QuantizeDType::F32,
+                error_bound: ErrorBound::AbsRel { abs: _, rel: _ },
+                threshold: _,
+                decorrelation: Decorrelation::Random,
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_REL_R_f32,
+            Self::BinaryQuantizeErrorBound {
+                dtype: QuantizeDType::F32,
+                error_bound: BinaryErrorBound::Abs { abs: _ },
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_IABS_0_f32,
+            Self::BinaryQuantizeErrorBound {
+                dtype: QuantizeDType::F32,
+                error_bound: BinaryErrorBound::Noa { noa: _ },
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_INOA_0_f32,
+            Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F64,
-                kind: ErrorKind::Abs,
-                error_bound: _,
+                error_bound: ErrorBound::Abs { abs: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Zero,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_0_f64,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F64,
-                kind: ErrorKind::Abs,
-                error_bound: _,
+                error_bound: ErrorBound::Abs { abs: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Random,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_R_f64,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F64,
-                kind: ErrorKind::Noa,
-                error_bound: _,
+                error_bound: ErrorBound::Noa { noa: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Zero,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_NOA_0_f64,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F64,
-                kind: ErrorKind::Noa,
-                error_bound: _,
+                error_bound: ErrorBound::Noa { noa: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Random,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_NOA_R_f64,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F64,
-                kind: ErrorKind::Rel,
-                error_bound: _,
+                error_bound: ErrorBound::Rel { rel: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Zero,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_REL_0_f64,
             Self::QuantizeErrorBound {
                 dtype: QuantizeDType::F64,
-                kind: ErrorKind::Rel,
-                error_bound: _,
+                error_bound: ErrorBound::Rel { rel: _ },
                 threshold: _,
                 decorrelation: Decorrelation::Random,
             } => lc_framework_sys::LC_CPUpreprocessor_QUANT_REL_R_f64,
+            Self::QuantizeErrorBound {
+                dtype: QuantizeDType::F64,
+                error_bound: ErrorBound::AbsRel { abs: _, rel: _ },
+                threshold: _,
+                decorrelation: Decorrelation::Zero,
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_REL_0_f64,
+            Self::QuantizeErrorBound {
+                dtype: QuantizeDType::F64,
+                error_bound: ErrorBound::AbsRel { abs: _, rel: _ },
+                threshold: _,
+                decorrelation: Decorrelation::Random,
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_ABS_REL_R_f64,
+            Self::BinaryQuantizeErrorBound {
+                dtype: QuantizeDType::F64,
+                error_bound: BinaryErrorBound::Abs { abs: _ },
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_IABS_0_f64,
+            Self::BinaryQuantizeErrorBound {
+                dtype: QuantizeDType::F64,
+                error_bound: BinaryErrorBound::Noa { noa: _ },
+            } => lc_framework_sys::LC_CPUpreprocessor_QUANT_INOA_0_f64,
         }
     }
 
@@ -367,8 +401,10 @@ impl Preprocessor {
             Self::Noop | Self::Lorenzo1D { dtype: _ } => (),
             Self::QuantizeErrorBound {
                 dtype: _,
-                kind: _,
-                error_bound,
+                error_bound:
+                    ErrorBound::Abs { abs: error_bound }
+                    | ErrorBound::Noa { noa: error_bound }
+                    | ErrorBound::Rel { rel: error_bound },
                 threshold,
                 decorrelation: _,
             } => {
@@ -377,19 +413,74 @@ impl Preprocessor {
                     params.push(*threshold);
                 }
             }
+            Self::QuantizeErrorBound {
+                dtype: _,
+                error_bound:
+                    ErrorBound::AbsRel {
+                        abs: abs_error_bound,
+                        rel: rel_error_bound,
+                    },
+                threshold,
+                decorrelation: _,
+            } => {
+                params.push(*abs_error_bound);
+                params.push(*rel_error_bound);
+                if let Some(threshold) = threshold {
+                    params.push(*threshold);
+                }
+            }
+            Self::BinaryQuantizeErrorBound {
+                dtype: _,
+                error_bound:
+                    BinaryErrorBound::Abs { abs: error_bound }
+                    | BinaryErrorBound::Noa { noa: error_bound },
+            } => {
+                params.push(*error_bound);
+            }
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// LC error bound kind
-pub enum ErrorKind {
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+/// LC error bound
+pub enum ErrorBound {
     /// pointwise absolute error bound
-    Abs,
+    Abs {
+        /// error bound
+        abs: f64,
+    },
     /// pointwise normalised absolute / data-range-relative error bound
-    Noa,
+    Noa {
+        /// error bound
+        noa: f64,
+    },
     /// pointwise relative error bound
-    Rel,
+    Rel {
+        /// error bound
+        rel: f64,
+    },
+    /// pointwise absolute and relative error bound
+    AbsRel {
+        /// absolute error bound
+        abs: f64,
+        /// relative error bound
+        rel: f64,
+    },
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+/// LC error bound using integer operations only
+pub enum BinaryErrorBound {
+    /// pointwise absolute error bound
+    Abs {
+        /// error bound
+        abs: f64,
+    },
+    /// pointwise normalised absolute / data-range-relative error bound
+    Noa {
+        /// error bound
+        noa: f64,
+    },
 }
 
 #[expect(missing_docs)]
@@ -423,8 +514,6 @@ pub enum Component {
     // mutators
     TwosComplementToSignMagnitude { size: ElemSize },
     TwosComplementToNegaBinary { size: ElemSize },
-    DebiasedExponentFractionSign { size: FloatSize },
-    DebiasedExponentSignFraction { size: FloatSize },
     // shufflers
     BitShuffle { size: ElemSize },
     Tuple { size: TupleSize },
@@ -472,18 +561,6 @@ impl Component {
             Self::TwosComplementToNegaBinary { size: ElemSize::S8 } => {
                 lc_framework_sys::LC_CPUcomponents_TCNB_8
             }
-            Self::DebiasedExponentFractionSign {
-                size: FloatSize::S4,
-            } => lc_framework_sys::LC_CPUcomponents_DBEFS_4,
-            Self::DebiasedExponentFractionSign {
-                size: FloatSize::S8,
-            } => lc_framework_sys::LC_CPUcomponents_DBEFS_8,
-            Self::DebiasedExponentSignFraction {
-                size: FloatSize::S4,
-            } => lc_framework_sys::LC_CPUcomponents_DBESF_4,
-            Self::DebiasedExponentSignFraction {
-                size: FloatSize::S8,
-            } => lc_framework_sys::LC_CPUcomponents_DBESF_8,
             // shuffle
             Self::BitShuffle { size: ElemSize::S1 } => lc_framework_sys::LC_CPUcomponents_BIT_1,
             Self::BitShuffle { size: ElemSize::S2 } => lc_framework_sys::LC_CPUcomponents_BIT_2,
@@ -727,8 +804,7 @@ mod tests {
 
         let preprocessors = &[Preprocessor::QuantizeErrorBound {
             dtype: QuantizeDType::F32,
-            kind: ErrorKind::Abs,
-            error_bound,
+            error_bound: ErrorBound::Abs { abs: error_bound },
             threshold: None,
             decorrelation: Decorrelation::Zero,
         }];
